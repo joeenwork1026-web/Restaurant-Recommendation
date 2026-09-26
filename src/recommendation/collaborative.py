@@ -1,14 +1,12 @@
-"""User-based collaborative filtering for restaurant recommendations."""
+"""User-based collaborative filtering recommender."""
 
 import os
 
-import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-# Interaction strength.
-# Stronger actions indicate stronger user preference.
+# Stronger user actions receive larger weights.
 INTERACTION_WEIGHTS = {
     "view": 1,
     "click": 2,
@@ -20,29 +18,52 @@ INTERACTION_WEIGHTS = {
 
 
 def project_paths():
-    """Find the project's data folder."""
+    """Return the path to the project's data directory."""
 
-    # This file is in src/recommendation/
-    # so we go up two folders to reach the project root.
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    script_dir = os.path.dirname(
+        os.path.abspath(__file__)
+    )
 
     project_root = os.path.abspath(
-        os.path.join(script_dir, "..", "..")
+        os.path.join(
+            script_dir,
+            "..",
+            "..",
+        )
     )
 
-    return os.path.join(project_root, "data")
-
-
-def load_data():
-    """Load interaction data and create the user-item matrix."""
-
-    data_dir = project_paths()
-
-    interactions = pd.read_csv(
-        os.path.join(data_dir, "interactions.csv")
+    data_dir = os.path.join(
+        project_root,
+        "data",
     )
 
-    # Convert event types into numerical preference strengths.
+    return data_dir
+
+
+def load_data(interactions=None):
+    """
+    Load interaction data and create a user-item matrix.
+
+    Rows    = users
+    Columns = restaurants
+    Values  = weighted interaction strength
+    """
+
+    if interactions is None:
+
+        data_dir = project_paths()
+
+        interactions = pd.read_csv(
+            os.path.join(
+                data_dir,
+                "interactions.csv",
+            )
+        )
+
+    else:
+        interactions = interactions.copy()
+
+    # Convert event types into numerical weights.
     interactions["weight"] = (
         interactions["event_type"]
         .map(INTERACTION_WEIGHTS)
@@ -50,10 +71,6 @@ def load_data():
     )
 
     # Create the user-item interaction matrix.
-    #
-    # Rows    = users
-    # Columns = restaurants
-    # Values  = interaction strength
     user_item_matrix = interactions.pivot_table(
         index="user_id",
         columns="restaurant_id",
@@ -62,151 +79,233 @@ def load_data():
         fill_value=0,
     )
 
-    return interactions, user_item_matrix
+    return (
+        interactions,
+        user_item_matrix,
+    )
 
 
-def get_similar_users(user_id, user_item_matrix, top_k=10):
-    """Find users with interaction patterns similar to the given user."""
+def calculate_user_similarity(
+    user_item_matrix,
+):
+    """
+    Calculate cosine similarity between users.
 
-    if user_id not in user_item_matrix.index:
-        raise ValueError(
-            f"Unknown user_id: {user_id}"
-        )
+    Each row represents one user's restaurant
+    interaction profile.
+    """
 
-    # Calculate cosine similarity between every pair of users.
-    user_similarity = cosine_similarity(
+    similarity_matrix = cosine_similarity(
         user_item_matrix
     )
 
-    # Get the row corresponding to the requested user.
-    user_index = user_item_matrix.index.get_loc(
-        user_id
+    similarity_df = pd.DataFrame(
+        similarity_matrix,
+        index=user_item_matrix.index,
+        columns=user_item_matrix.index,
     )
 
-    similarities = user_similarity[user_index]
+    return similarity_df
 
-    # Create a table containing users and their similarity scores.
-    similar_users = pd.DataFrame(
-        {
-            "user_id": user_item_matrix.index,
-            "similarity": similarities,
-        }
+
+def get_similar_users(
+    user_id,
+    similarity_df,
+    similar_user_count=10,
+    minimum_similarity=0.0,
+):
+    """
+    Find users most similar to the target user.
+    """
+
+    if user_id not in similarity_df.index:
+        raise ValueError(
+            f"User {user_id} was not found."
+        )
+
+    similar_users = (
+        similarity_df[user_id]
+        .drop(user_id)
+        .sort_values(
+            ascending=False
+        )
     )
 
-    # Remove the user themselves.
+    # Remove users whose similarity is too low.
     similar_users = similar_users[
-        similar_users["user_id"] != user_id
+        similar_users >= minimum_similarity
     ]
 
-    # Highest similarity first.
-    similar_users = similar_users.sort_values(
-        "similarity",
-        ascending=False,
+    # Keep only the strongest similar users.
+    similar_users = similar_users.head(
+        similar_user_count
     )
 
-    return similar_users.head(top_k).reset_index(drop=True)
+    return similar_users
 
 
-def recommend_for_user(user_id, top_k=10, similar_user_count=10):
-    """Recommend restaurants using similar users' behavior."""
+def recommend_for_user(
+    user_id,
+    top_k=10,
+    similar_user_count=10,
+    minimum_similarity=0.0,
+    interactions=None,
+):
+    """
+    Generate recommendations using user-based
+    collaborative filtering.
 
-    interactions, user_item_matrix = load_data()
+    Recommendation score:
 
-    # ---------------------------------------------------------
-    # 1. Find users who behave similarly to this user.
-    # ---------------------------------------------------------
+        similarity × interaction strength
 
-    similar_users = get_similar_users(
-        user_id,
+    across similar users.
+    """
+
+    (
+        interactions,
         user_item_matrix,
-        top_k=similar_user_count,
+    ) = load_data(interactions)
+
+    if user_id not in user_item_matrix.index:
+        raise ValueError(
+            f"User {user_id} was not found "
+            f"in the interaction data."
+        )
+
+    # Calculate similarity between all users.
+    similarity_df = calculate_user_similarity(
+        user_item_matrix
     )
 
-    # ---------------------------------------------------------
-    # 2. Get the restaurant interactions of those users.
-    # ---------------------------------------------------------
-
-    top_user_ids = similar_users["user_id"].tolist()
-
-    candidate_scores = user_item_matrix.loc[
-        top_user_ids
-    ]
-
-    # ---------------------------------------------------------
-    # 3. Weight each user's behavior by how similar
-    #    they are to the target user.
-    # ---------------------------------------------------------
-
-    similarity_weights = (
-        similar_users
-        .set_index("user_id")["similarity"]
+    # Find users with similar restaurant preferences.
+    similar_users = get_similar_users(
+        user_id=user_id,
+        similarity_df=similarity_df,
+        similar_user_count=similar_user_count,
+        minimum_similarity=minimum_similarity,
     )
 
-    weighted_scores = candidate_scores.mul(
-        similarity_weights,
-        axis=0,
+    # Store recommendation scores here.
+    candidate_scores = {}
+
+    # Look at the restaurants interacted with
+    # by each similar user.
+    for (
+        similar_user,
+        similarity_score,
+    ) in similar_users.items():
+
+        user_restaurants = user_item_matrix.loc[
+            similar_user
+        ]
+
+        for (
+            restaurant_id,
+            interaction_weight,
+        ) in user_restaurants.items():
+
+            # Ignore restaurants that the user
+            # never interacted with.
+            if interaction_weight <= 0:
+                continue
+
+            # Similarity determines how much
+            # this user's preference matters.
+            score = (
+                similarity_score
+                * interaction_weight
+            )
+
+            candidate_scores[
+                restaurant_id
+            ] = (
+                candidate_scores.get(
+                    restaurant_id,
+                    0.0,
+                )
+                + score
+            )
+
+    # Restaurants already seen by the target user
+    # should not be recommended again.
+    seen_restaurants = set(
+        interactions.loc[
+            interactions["user_id"] == user_id,
+            "restaurant_id",
+        ]
     )
 
-    # Add scores from all similar users.
-    restaurant_scores = weighted_scores.sum(
-        axis=0
+    candidate_scores = {
+        restaurant_id: score
+        for (
+            restaurant_id,
+            score,
+        ) in candidate_scores.items()
+        if restaurant_id not in seen_restaurants
+    }
+
+    # Convert recommendation scores into a DataFrame.
+    recommendations = pd.DataFrame(
+        list(
+            candidate_scores.items()
+        ),
+        columns=[
+            "restaurant_id",
+            "collaborative_score",
+        ],
     )
 
-    # ---------------------------------------------------------
-    # 4. Remove restaurants the target user has
-    #    already interacted with.
-    # ---------------------------------------------------------
-
-    user_history = user_item_matrix.loc[user_id]
-
-    user_history = user_history[
-        user_history > 0
-    ]
-
-    restaurant_scores = restaurant_scores.drop(
-        user_history.index,
-        errors="ignore",
-    )
-
-    # ---------------------------------------------------------
-    # 5. Sort restaurants by recommendation score.
-    # ---------------------------------------------------------
-
-    restaurant_scores = restaurant_scores.sort_values(
+    # Sort highest score first.
+    recommendations = recommendations.sort_values(
+        "collaborative_score",
         ascending=False,
     )
 
-    # Return the top K recommendations.
-    return restaurant_scores.head(top_k)
+    # Add restaurant information.
+    data_dir = project_paths()
+
+    restaurants = pd.read_csv(
+        os.path.join(
+            data_dir,
+            "restaurants.csv",
+        )
+    )
+
+    recommendations = recommendations.merge(
+        restaurants,
+        on="restaurant_id",
+        how="left",
+    )
+
+    return recommendations.head(
+        top_k
+    ).reset_index(drop=True)
 
 
 def main():
-
-    print("Similar users to U001:")
-    print()
-
-    _, user_item_matrix = load_data()
-
-    similar_users = get_similar_users(
-        "U001",
-        user_item_matrix,
-        top_k=10,
-    )
-
-    print(
-        similar_users.to_string(index=False)
-    )
-
-    print("\nCollaborative recommendations for U001:")
-    print()
+    """Run a simple collaborative filtering example."""
 
     recommendations = recommend_for_user(
-        "U001",
+        user_id="U001",
         top_k=10,
+        similar_user_count=10,
+        minimum_similarity=0.0,
     )
 
+    columns = [
+        "restaurant_id",
+        "name",
+        "cuisine",
+        "price_range",
+        "rating",
+        "collaborative_score",
+    ]
+
     print(
-        recommendations.to_string()
+        recommendations[
+            columns
+        ].to_string(index=False)
     )
 
 

@@ -1,13 +1,13 @@
-"""Content-based restaurant recommendations using TF-IDF."""
+"""Content-based restaurant recommendation system."""
 
 import os
+
 import numpy as np
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-# Stronger interactions indicate stronger user preference.
 INTERACTION_WEIGHTS = {
     "view": 1,
     "click": 2,
@@ -19,11 +19,9 @@ INTERACTION_WEIGHTS = {
 
 
 def project_paths():
-    """Find the project's data folder."""
-
-    # This file is in src/recommendation/
-    # so we go up two folders to reach the project root.
+    """Return the path to the project's data directory."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
+
     project_root = os.path.abspath(
         os.path.join(script_dir, "..", "..")
     )
@@ -31,23 +29,28 @@ def project_paths():
     return os.path.join(project_root, "data")
 
 
-def prepare():
-    """Load data and create TF-IDF and similarity matrix."""
+def prepare(interactions=None):
+    """Load data and create restaurant TF-IDF vectors."""
 
     data_dir = project_paths()
 
-    # Load restaurant data
     restaurants = pd.read_csv(
-        os.path.join(data_dir, "restaurants.csv")
+        os.path.join(
+            data_dir,
+            "restaurants.csv",
+        )
     )
 
-    # Load user interaction data
-    interactions = pd.read_csv(
-        os.path.join(data_dir, "interactions.csv")
-    )
+    if interactions is None:
+        interactions = pd.read_csv(
+            os.path.join(
+                data_dir,
+                "interactions.csv",
+            )
+        )
+    else:
+        interactions = interactions.copy()
 
-    # Combine restaurant information into one text field.
-    # TF-IDF will use this text to understand restaurant similarity.
     restaurants["content_text"] = (
         restaurants["cuisine"].fillna("")
         + " "
@@ -56,7 +59,6 @@ def prepare():
         + restaurants["description"].fillna("")
     )
 
-    # Convert restaurant text into TF-IDF vectors.
     vectorizer = TfidfVectorizer(
         stop_words="english"
     )
@@ -65,161 +67,204 @@ def prepare():
         restaurants["content_text"]
     )
 
-    # Calculate similarity between every pair of restaurants.
     similarity_matrix = cosine_similarity(
         tfidf_matrix
     )
 
-    # Map restaurant ID to its row number in the similarity matrix.
     id_to_index = {
-        restaurant_id: i
-        for i, restaurant_id in enumerate(
-            restaurants["restaurant_id"]
-        )
+        restaurant_id: index
+        for index, restaurant_id
+        in enumerate(restaurants["restaurant_id"])
     }
 
     return (
         restaurants,
         interactions,
+        tfidf_matrix,
         similarity_matrix,
         id_to_index,
     )
 
 
-def get_similar_restaurants(restaurant_id, top_k=10):
-    """Find restaurants similar to a given restaurant."""
+def get_similar_restaurants(
+    restaurant_id,
+    top_k=10,
+):
+    """Find restaurants similar to a restaurant."""
 
     (
         restaurants,
+        _,
         _,
         similarity_matrix,
         id_to_index,
     ) = prepare()
 
-    # Check whether the restaurant exists.
     if restaurant_id not in id_to_index:
         raise ValueError(
             f"Unknown restaurant_id: {restaurant_id}"
         )
 
-    # Find the restaurant's row in the similarity matrix.
     index = id_to_index[restaurant_id]
 
-    # Get similarity scores between this restaurant
-    # and every other restaurant.
     scores = similarity_matrix[index]
 
-    # Copy restaurant information.
     similar = restaurants.copy()
 
-    # Add similarity scores.
     similar["similarity"] = scores
 
-    # Remove the restaurant itself.
     similar = similar[
         similar["restaurant_id"] != restaurant_id
     ]
 
-    # Highest similarity first.
     similar = similar.sort_values(
         "similarity",
         ascending=False,
     )
 
-    return similar.head(top_k).reset_index(drop=True)
+    return similar.head(top_k).reset_index(
+        drop=True
+    )
 
 
-def recommend_for_user(user_id, top_k=10):
-    """Recommend restaurants based on the user's interaction history."""
+def build_user_profile(
+    user_id,
+    interactions,
+    tfidf_matrix,
+    id_to_index,
+):
+    """Build a weighted content profile for a user."""
 
-    (
-        restaurants,
-        interactions,
-        similarity_matrix,
-        id_to_index,
-    ) = prepare()
-
-    # Get all interactions for this user.
     user_interactions = interactions[
         interactions["user_id"] == user_id
     ].copy()
 
-    if len(user_interactions) == 0:
+    if user_interactions.empty:
         raise ValueError(
             f"No interactions found for user_id: {user_id}"
         )
 
-    # Convert interaction types into preference weights.
     user_interactions["weight"] = (
         user_interactions["event_type"]
         .map(INTERACTION_WEIGHTS)
         .fillna(1)
     )
 
-    # Get the restaurants this user has interacted with.
-    seen_ids = user_interactions["restaurant_id"].unique()
+    profile_vectors = []
+    profile_weights = []
 
-    # Keep only restaurants that exist in our restaurant catalog.
-    valid_seen_ids = [
-        rid for rid in seen_ids
-        if rid in id_to_index
-    ]
+    for _, interaction in user_interactions.iterrows():
 
-    if len(valid_seen_ids) == 0:
-        raise ValueError(
-            f"No matching restaurants found for user_id: {user_id}"
+        restaurant_id = interaction[
+            "restaurant_id"
+        ]
+
+        if restaurant_id not in id_to_index:
+            continue
+
+        restaurant_index = id_to_index[
+            restaurant_id
+        ]
+
+        restaurant_vector = tfidf_matrix[
+            restaurant_index
+        ]
+
+        profile_vectors.append(
+            restaurant_vector.toarray()[0]
         )
 
-    # Convert restaurant IDs into row positions.
-    seen_indexes = [
-        id_to_index[rid]
-        for rid in valid_seen_ids
+        profile_weights.append(
+            interaction["weight"]
+        )
+
+    if not profile_vectors:
+        raise ValueError(
+            f"No matching restaurants found "
+            f"for user_id: {user_id}"
+        )
+
+    profile_vectors = np.array(
+        profile_vectors
+    )
+
+    profile_weights = np.array(
+        profile_weights
+    )
+
+    user_profile = np.average(
+        profile_vectors,
+        axis=0,
+        weights=profile_weights,
+    )
+
+    return user_profile
+
+
+def recommend_for_user(
+    user_id,
+    top_k=10,
+    interactions=None,
+):
+    """
+    Recommend restaurants based on the user's
+    learned content preferences.
+    """
+
+    (
+        restaurants,
+        interactions,
+        tfidf_matrix,
+        _,
+        id_to_index,
+    ) = prepare(interactions)
+
+    # Build the user's preference profile.
+    user_profile = build_user_profile(
+        user_id,
+        interactions,
+        tfidf_matrix,
+        id_to_index,
+    )
+
+    # Compare the user's profile against every
+    # restaurant.
+    scores = cosine_similarity(
+        user_profile.reshape(1, -1),
+        tfidf_matrix,
+    )[0]
+
+    recommendations = restaurants.copy()
+
+    recommendations["similarity"] = scores
+
+    # Remove restaurants the user has already
+    # interacted with.
+    seen_restaurants = set(
+        interactions.loc[
+            interactions["user_id"] == user_id,
+            "restaurant_id",
+        ]
+    )
+
+    recommendations = recommendations[
+        ~recommendations["restaurant_id"].isin(
+            seen_restaurants
+        )
     ]
 
-    # Calculate total interaction weight for each restaurant.
-    weights = []
-
-    for restaurant_id in valid_seen_ids:
-
-        restaurant_weight = user_interactions.loc[
-            user_interactions["restaurant_id"] == restaurant_id,
-            "weight",
-        ].sum()
-
-        weights.append(restaurant_weight)
-
-    # Convert weights into a NumPy column vector.
-    weights = np.array(weights).reshape(-1, 1)
-
-    # Get similarity scores for the user's restaurants.
-    user_similarity = similarity_matrix[seen_indexes]
-
-    # Apply each restaurant's interaction weight.
-    weighted_similarity = user_similarity * weights
-
-    # Add the weighted scores together.
-    combined_scores = weighted_similarity.sum(axis=0)
-
-    # Create recommendation table.
-    ranked = restaurants.copy()
-
-    ranked["similarity"] = combined_scores
-
-    # Don't recommend restaurants the user has already interacted with.
-    ranked = ranked[
-        ~ranked["restaurant_id"].isin(seen_ids)
-    ]
-
-    # Highest recommendation score first.
-    ranked = ranked.sort_values(
+    recommendations = recommendations.sort_values(
         "similarity",
         ascending=False,
     )
 
-    return ranked.head(top_k).reset_index(drop=True)
+    return recommendations.head(
+        top_k
+    ).reset_index(drop=True)
 
 
 def main():
+    """Run a simple content-based recommendation example."""
 
     columns = [
         "restaurant_id",
@@ -229,11 +274,9 @@ def main():
         "similarity",
     ]
 
-    # ---------------------------------------------------------
-    # Test 1: Similar restaurants
-    # ---------------------------------------------------------
-
-    print("Restaurants similar to R001:")
+    print(
+        "Restaurants similar to R001:"
+    )
 
     print(
         get_similar_restaurants(
@@ -242,11 +285,9 @@ def main():
         )[columns].to_string(index=False)
     )
 
-    # ---------------------------------------------------------
-    # Test 2: Personalized recommendations
-    # ---------------------------------------------------------
-
-    print("\nRecommendations for user U001:")
+    print(
+        "\nRecommendations for user U001:"
+    )
 
     print(
         recommend_for_user(

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>ForkAI — Discover Restaurants</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+</head>
+
+<body>
+
+    <!-- Navigation -->
+
+    <nav class="navbar">
+
+        <div class="nav-inner">
+
+            <div class="logo">
+                <span class="logo-icon">🍜</span>
+                <span>ForkAI</span>
+            </div>
+
+            <div class="nav-links">
+
+                <a href="#" class="active">
+                    Discover
+                </a>
+
+                <a href="#">
+                    For You
+                </a>
+
+                <a href="#">
+                    Saved
+                </a>
+
+            </div>
+
+            <button class="profile-button">
+                <span>JD</span>
+            </button>
+
+        </div>
+
+    </nav>
+
+
+    <!-- Hero -->
+
+    <section class="hero">
+
+        <div class="hero-content">
+
+            <div class="hero-badge">
+                ✨ AI-powered restaurant discovery
+            </div>
+
+            <h1>
+                Find somewhere
+                <span>you'll love.</span>
+            </h1>
+
+            <p class="hero-subtitle">
+                Tell us what you're craving and let AI
+                find restaurants that match your preferences.
+            </p>
+
+
+            <!-- Search -->
+
+            <div class="search-container">
+
+                <div class="search-icon">
+                    🔍
+                </div>
+
+                <input
+                    id="user-input"
+                    type="text"
+                    placeholder="Try: cheap Japanese food in Kuala Lumpur"
+                    autocomplete="off"
+                >
+
+                <button
+                    id="send-button"
+                    class="search-button"
+                >
+                    Search
+                </button>
+
+            </div>
+
+
+            <!-- Suggestions -->
+
+            <div class="suggestions">
+
+                <span>Try:</span>
+
+                <button
+                    class="suggestion"
+                    data-query="cheap Japanese food in Kuala Lumpur"
+                >
+                    🍣 Japanese
+                </button>
+
+                <button
+                    class="suggestion"
+                    data-query="Italian food in Kuala Lumpur"
+                >
+                    🍕 Italian
+                </button>
+
+                <button
+                    class="suggestion"
+                    data-query="affordable restaurants in Kuala Lumpur"
+                >
+                    💰 Affordable
+                </button>
+
+                <button
+                    class="suggestion"
+                    data-query="highly rated restaurants in Kuala Lumpur"
+                >
+                    ⭐ Highly rated
+                </button>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Main Content -->
+
+    <main class="main-content">
+
+        <div class="section-header">
+
+            <div>
+
+                <p class="section-label">
+                    DISCOVER
+                </p>
+
+                <h2 id="results-title">
+                    Popular restaurants
+                </h2>
+
+            </div>
+
+            <div
+                id="results-count"
+                class="results-count"
+            >
+                Explore our recommendations
+            </div>
+
+        </div>
+
+
+        <!-- Loading -->
+
+        <div
+            id="loading"
+            class="loading hidden"
+        >
+
+            <div class="loading-spinner"></div>
+
+            <div>
+
+                <strong>
+                    Finding restaurants...
+                </strong>
+
+                <p>
+                    Our AI is looking through the options.
+                </p>
+
+            </div>
+
+        </div>
+
+
+        <!-- Empty State -->
+
+        <div
+            id="empty-state"
+            class="empty-state hidden"
+        >
+
+            <div class="empty-icon">
+                🍽️
+            </div>
+
+            <h3>
+                No restaurants found
+            </h3>
+
+            <p>
+                Try changing your cuisine, location,
+                or price preference.
+            </p>
+
+        </div>
+
+
+        <!-- Restaurant Grid -->
+
+        <div
+            id="restaurant-grid"
+            class="restaurant-grid"
+        >
+
+            <!-- Restaurant cards will be inserted here -->
+
+        </div>
+
+    </main>
+
+
+    <!-- Footer -->
+
+    <footer>
+
+        <div class="footer-inner">
+
+            <div class="footer-logo">
+                🍜 ForkAI
+            </div>
+
+            <p>
+                AI-powered restaurant discovery.
+            </p>
+
+            <span>
+                Built as an end-to-end recommendation system.
+            </span>
+
+        </div>
+
+    </footer>
+
+
+    <script src="app.js"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,733 @@
+* {
+    box-sizing: border-box;
+}
+
+:root {
+    --background: #f7f7f5;
+    --surface: #ffffff;
+    --text: #171717;
+    --muted: #737373;
+    --border: #e7e5e4;
+    --accent: #e85d2a;
+    --accent-dark: #c94a1d;
+}
+
+body {
+    margin: 0;
+    font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+    background: var(--background);
+    color: var(--text);
+}
+
+
+/* =========================
+   NAVIGATION
+========================= */
+
+.navbar {
+    height: 72px;
+    background: rgba(255, 255, 255, 0.94);
+    border-bottom: 1px solid var(--border);
+
+    position: sticky;
+    top: 0;
+    z-index: 100;
+
+    backdrop-filter: blur(12px);
+}
+
+.nav-inner {
+    max-width: 1200px;
+    height: 100%;
+    margin: auto;
+
+    padding: 0 24px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+.logo-icon {
+    font-size: 24px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 34px;
+}
+
+.nav-links a {
+    color: #737373;
+    text-decoration: none;
+
+    font-size: 14px;
+    font-weight: 600;
+
+    transition: 0.2s;
+}
+
+.nav-links a:hover,
+.nav-links a.active {
+    color: var(--text);
+}
+
+.profile-button {
+    width: 38px;
+    height: 38px;
+
+    border: none;
+    border-radius: 50%;
+
+    background: #171717;
+    color: white;
+
+    font-size: 12px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+
+/* =========================
+   HERO
+========================= */
+
+.hero {
+    background:
+        radial-gradient(
+            circle at 20% 20%,
+            #fff1e9,
+            transparent 40%
+        ),
+        linear-gradient(
+            135deg,
+            #fffaf7,
+            #f7f7f5
+        );
+
+    padding: 90px 24px 80px;
+
+    border-bottom: 1px solid var(--border);
+}
+
+.hero-content {
+    max-width: 850px;
+    margin: auto;
+
+    text-align: center;
+}
+
+.hero-badge {
+    display: inline-block;
+
+    padding: 8px 14px;
+
+    border-radius: 999px;
+
+    background: #fff0e9;
+    color: #c94a1d;
+
+    font-size: 13px;
+    font-weight: 700;
+
+    margin-bottom: 24px;
+}
+
+.hero h1 {
+    margin: 0;
+
+    font-size: clamp(44px, 7vw, 76px);
+
+    line-height: 0.98;
+
+    letter-spacing: -4px;
+
+    font-weight: 850;
+}
+
+.hero h1 span {
+    display: block;
+    color: var(--accent);
+}
+
+.hero-subtitle {
+    max-width: 620px;
+
+    margin: 26px auto 34px;
+
+    color: var(--muted);
+
+    font-size: 17px;
+    line-height: 1.6;
+}
+
+
+/* =========================
+   SEARCH
+========================= */
+
+.search-container {
+    max-width: 720px;
+
+    margin: auto;
+
+    display: flex;
+    align-items: center;
+
+    background: white;
+
+    border: 1px solid #ddd;
+
+    border-radius: 16px;
+
+    padding: 7px 7px 7px 18px;
+
+    box-shadow:
+        0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+.search-icon {
+    font-size: 19px;
+    margin-right: 10px;
+}
+
+#user-input {
+    flex: 1;
+
+    min-width: 0;
+
+    border: none;
+    outline: none;
+
+    font-size: 15px;
+
+    background: transparent;
+
+    color: var(--text);
+}
+
+#user-input::placeholder {
+    color: #a3a3a3;
+}
+
+.search-button {
+    border: none;
+
+    padding: 13px 22px;
+
+    border-radius: 11px;
+
+    background: var(--accent);
+    color: white;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: 0.2s;
+}
+
+.search-button:hover {
+    background: var(--accent-dark);
+    transform: translateY(-1px);
+}
+
+.search-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+
+/* =========================
+   SUGGESTIONS
+========================= */
+
+.suggestions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    flex-wrap: wrap;
+
+    gap: 8px;
+
+    margin-top: 18px;
+
+    font-size: 13px;
+
+    color: var(--muted);
+}
+
+.suggestion {
+    border: 1px solid var(--border);
+
+    background: white;
+
+    padding: 8px 13px;
+
+    border-radius: 999px;
+
+    cursor: pointer;
+
+    font-size: 12px;
+
+    transition: 0.2s;
+}
+
+.suggestion:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+
+/* =========================
+   MAIN
+========================= */
+
+.main-content {
+    max-width: 1200px;
+
+    margin: auto;
+
+    padding: 65px 24px 90px;
+}
+
+.section-header {
+    display: flex;
+
+    align-items: flex-end;
+
+    justify-content: space-between;
+
+    margin-bottom: 28px;
+}
+
+.section-label {
+    margin: 0 0 8px;
+
+    color: var(--accent);
+
+    font-size: 11px;
+
+    font-weight: 800;
+
+    letter-spacing: 1.5px;
+}
+
+.section-header h2 {
+    margin: 0;
+
+    font-size: 30px;
+
+    letter-spacing: -1px;
+}
+
+.results-count {
+    color: var(--muted);
+
+    font-size: 13px;
+}
+
+
+/* =========================
+   RESTAURANT GRID
+========================= */
+
+.restaurant-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(3, minmax(0, 1fr));
+
+    gap: 24px;
+}
+
+
+/* =========================
+   RESTAURANT CARD
+========================= */
+
+.restaurant-card {
+    background: var(--surface);
+
+    border: 1px solid var(--border);
+
+    border-radius: 16px;
+
+    overflow: hidden;
+
+    transition:
+        transform 0.25s,
+        box-shadow 0.25s;
+
+    position: relative;
+}
+
+.restaurant-card:hover {
+    transform: translateY(-5px);
+
+    box-shadow:
+        0 15px 35px rgba(0, 0, 0, 0.09);
+}
+
+.restaurant-image {
+    height: 210px;
+
+    width: 100%;
+
+    object-fit: cover;
+
+    display: block;
+}
+
+.restaurant-image-placeholder {
+    height: 210px;
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    font-size: 60px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #ffe4d6,
+            #fff7f2
+        );
+}
+
+.save-button {
+    position: absolute;
+
+    top: 14px;
+    right: 14px;
+
+    width: 38px;
+    height: 38px;
+
+    border: none;
+
+    border-radius: 50%;
+
+    background: rgba(255, 255, 255, 0.94);
+
+    font-size: 17px;
+
+    cursor: pointer;
+
+    box-shadow:
+        0 3px 10px rgba(0, 0, 0, 0.12);
+}
+
+.save-button:hover {
+    transform: scale(1.08);
+}
+
+.restaurant-body {
+    padding: 20px;
+}
+
+.restaurant-name-row {
+    display: flex;
+
+    align-items: flex-start;
+
+    justify-content: space-between;
+
+    gap: 12px;
+}
+
+.restaurant-name {
+    margin: 0;
+
+    font-size: 20px;
+
+    letter-spacing: -0.4px;
+}
+
+.rating {
+    white-space: nowrap;
+
+    font-size: 13px;
+
+    font-weight: 700;
+}
+
+.rating span {
+    color: #f59e0b;
+}
+
+.restaurant-details {
+    display: flex;
+
+    flex-wrap: wrap;
+
+    gap: 7px;
+
+    margin-top: 9px;
+}
+
+.tag {
+    padding: 5px 9px;
+
+    border-radius: 6px;
+
+    background: #f5f5f4;
+
+    color: #57534e;
+
+    font-size: 11px;
+
+    font-weight: 600;
+}
+
+.restaurant-location {
+    margin-top: 12px;
+
+    color: var(--muted);
+
+    font-size: 13px;
+}
+
+.ai-match {
+    margin-top: 18px;
+
+    padding: 14px;
+
+    border-radius: 10px;
+
+    background: #fff7f3;
+
+    border: 1px solid #fbe1d5;
+}
+
+.ai-match-title {
+    color: var(--accent);
+
+    font-size: 11px;
+
+    font-weight: 800;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.8px;
+
+    margin-bottom: 6px;
+}
+
+.ai-match p {
+    margin: 0;
+
+    color: #57534e;
+
+    font-size: 13px;
+
+    line-height: 1.5;
+}
+
+
+/* =========================
+   LOADING
+========================= */
+
+.loading {
+    display: flex;
+
+    align-items: center;
+
+    gap: 14px;
+
+    padding: 25px;
+
+    background: white;
+
+    border: 1px solid var(--border);
+
+    border-radius: 14px;
+
+    margin-bottom: 25px;
+}
+
+.loading strong {
+    font-size: 14px;
+}
+
+.loading p {
+    margin: 4px 0 0;
+
+    color: var(--muted);
+
+    font-size: 12px;
+}
+
+.loading-spinner {
+    width: 25px;
+    height: 25px;
+
+    border: 3px solid #eee;
+
+    border-top-color: var(--accent);
+
+    border-radius: 50%;
+
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+
+    to {
+        transform: rotate(360deg);
+    }
+
+}
+
+
+/* =========================
+   EMPTY STATE
+========================= */
+
+.empty-state {
+    text-align: center;
+
+    padding: 80px 20px;
+}
+
+.empty-icon {
+    font-size: 50px;
+}
+
+.empty-state h3 {
+    margin: 15px 0 7px;
+}
+
+.empty-state p {
+    margin: 0;
+
+    color: var(--muted);
+}
+
+
+/* =========================
+   FOOTER
+========================= */
+
+footer {
+    border-top: 1px solid var(--border);
+
+    background: white;
+}
+
+.footer-inner {
+    max-width: 1200px;
+
+    margin: auto;
+
+    padding: 30px 24px;
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 15px;
+
+    color: var(--muted);
+
+    font-size: 12px;
+}
+
+.footer-logo {
+    color: var(--text);
+
+    font-weight: 800;
+
+    font-size: 15px;
+}
+
+
+/* =========================
+   UTILITIES
+========================= */
+
+.hidden {
+    display: none !important;
+}
+
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 900px) {
+
+    .restaurant-grid {
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+    }
+
+}
+
+@media (max-width: 650px) {
+
+    .nav-links {
+        display: none;
+    }
+
+    .hero {
+        padding: 60px 18px;
+    }
+
+    .hero h1 {
+        letter-spacing: -2px;
+    }
+
+    .search-container {
+        padding: 6px;
+    }
+
+    .search-icon {
+        display: none;
+    }
+
+    .search-button {
+        padding: 12px 15px;
+    }
+
+    .restaurant-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .section-header {
+        align-items: flex-start;
+
+        flex-direction: column;
+
+        gap: 8px;
+    }
+
+    .footer-inner {
+        flex-direction: column;
+
+        align-items: flex-start;
+    }
+
+}

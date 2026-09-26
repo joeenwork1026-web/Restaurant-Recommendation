@@ -1,6 +1,7 @@
 """Hybrid restaurant recommendation system."""
 
 import os
+
 import pandas as pd
 
 from src.recommendation.content_based import (
@@ -13,54 +14,57 @@ from src.recommendation.popularity import (
     get_popular_restaurants,
 )
 
+
 def project_paths():
-    """Find the project's data folder."""
-
-    script_dir = os.path.dirname(
-        os.path.abspath(__file__)
-    )
-
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(
         os.path.join(script_dir, "..", "..")
     )
+    data_dir = os.path.join(project_root, "data")
+    return data_dir
 
-    return os.path.join(project_root, "data")
 
 def min_max_normalize(scores):
-    """Convert scores to a 0-1 range."""
-
     if scores.empty:
         return scores
 
-    min_score = scores.min()
-    max_score = scores.max()
+    minimum = scores.min()
+    maximum = scores.max()
 
-    # Avoid division by zero if all scores are identical.
-    if max_score == min_score:
+    if maximum == minimum:
         return pd.Series(0.0, index=scores.index)
 
-    return (scores - min_score) / (max_score - min_score)
+    return (scores - minimum) / (maximum - minimum)
 
-def get_recommendation_scores(user_id, top_k=10):
-    """Get recommendation scores from all three models."""
 
+def get_recommendation_scores(
+    user_id,
+    top_k=10,
+    interactions=None,
+):
     content_scores = content_recommend(
-        user_id,
+        user_id=user_id,
         top_k=top_k,
+        interactions=interactions,
     )
 
     collaborative_scores = collaborative_recommend(
-        user_id,
+        user_id=user_id,
         top_k=top_k,
+        similar_user_count=10,
+        minimum_similarity=0.0,
+        interactions=interactions,
     )
 
     popularity_table = get_popular_restaurants(
         top_k=top_k,
+        interactions=interactions,
     )
 
-    popularity_scores = popularity_table.set_index(
-        "restaurant_id"
-    )["popularity"]
+    popularity_scores = (
+        popularity_table
+        .set_index("restaurant_id")["popularity"]
+    )
 
     return (
         content_scores,
@@ -68,18 +72,23 @@ def get_recommendation_scores(user_id, top_k=10):
         popularity_scores,
     )
 
+
 def combine_score_tables(
     content_scores,
     collaborative_scores,
     popularity_scores,
 ):
-    """Combine scores from the three recommendation models."""
+    content_scores = (
+        content_scores
+        .set_index("restaurant_id")["similarity"]
+    )
 
-    # Content-based returns a DataFrame.
-    # Keep only restaurant ID and similarity score.
-    content_scores = content_scores.set_index(
-        "restaurant_id"
-    )["similarity"]
+    collaborative_scores = (
+        collaborative_scores
+        .set_index("restaurant_id")["collaborative_score"]
+    )
+
+    popularity_scores = popularity_scores
 
     scores = pd.concat(
         [
@@ -90,15 +99,12 @@ def combine_score_tables(
         axis=1,
     )
 
-    # If a restaurant was not recommended by a model,
-    # give it a score of 0.
     scores = scores.fillna(0)
 
     return scores
 
-def normalize_score_table(scores):
-    """Normalize each recommendation model to a 0-1 range."""
 
+def normalize_score_table(scores):
     normalized = scores.copy()
 
     normalized["content"] = min_max_normalize(
@@ -115,14 +121,13 @@ def normalize_score_table(scores):
 
     return normalized
 
+
 def calculate_hybrid_score(
     normalized_scores,
     content_weight=0.4,
     collaborative_weight=0.4,
     popularity_weight=0.2,
 ):
-    """Calculate the final weighted hybrid recommendation score."""
-
     scores = normalized_scores.copy()
 
     scores["hybrid_score"] = (
@@ -136,63 +141,38 @@ def calculate_hybrid_score(
         ascending=False,
     )
 
-def recommend_for_user(
+
+def remove_seen_restaurants(
+    recommendations,
     user_id,
-    top_k=10,
-    content_weight=0.4,
-    collaborative_weight=0.4,
-    popularity_weight=0.2,
+    interactions,
 ):
-    """Generate hybrid restaurant recommendations for a user."""
-
-    # 1. Get scores from all three recommendation models.
-    content_scores, collaborative_scores, popularity_scores = (
-        get_recommendation_scores(
-            user_id,
-            top_k=top_k,
-        )
+    seen_restaurants = set(
+        interactions.loc[
+            interactions["user_id"] == user_id,
+            "restaurant_id",
+        ]
     )
 
-    # 2. Combine the three score tables.
-    combined_scores = combine_score_tables(
-        content_scores,
-        collaborative_scores,
-        popularity_scores,
-    )
-
-    # 3. Normalize all model scores to 0-1.
-    normalized_scores = normalize_score_table(
-        combined_scores
-    )
-
-    # 4. Calculate the final weighted hybrid score.
-    hybrid_scores = calculate_hybrid_score(
-        normalized_scores,
-        content_weight=content_weight,
-        collaborative_weight=collaborative_weight,
-        popularity_weight=popularity_weight,
-    )
-
-    # 5. Keep only the top K recommendations.
-    hybrid_scores = hybrid_scores.head(top_k)
-
-    # 6. Add restaurant information.
-    recommendations = add_restaurant_details(
-        hybrid_scores
-    )
+    recommendations = recommendations[
+        ~recommendations.index.isin(seen_restaurants)
+    ]
 
     return recommendations
 
-def add_restaurant_details(hybrid_scores):
-    """Add restaurant information to the hybrid recommendations."""
 
+def add_restaurant_details(hybrid_scores):
     data_dir = project_paths()
 
     restaurants = pd.read_csv(
         os.path.join(data_dir, "restaurants.csv")
     )
 
-    recommendations = hybrid_scores.reset_index()
+    recommendations = (
+        hybrid_scores
+        .rename_axis("restaurant_id")
+        .reset_index()
+    )
 
     recommendations = recommendations.merge(
         restaurants,
@@ -201,3 +181,108 @@ def add_restaurant_details(hybrid_scores):
     )
 
     return recommendations
+
+
+def recommend_for_user(
+    user_id,
+    top_k=10,
+    content_weight=0.4,
+    collaborative_weight=0.4,
+    popularity_weight=0.2,
+    interactions=None,
+    candidate_restaurant_ids=None,
+):
+    if interactions is None:
+        data_dir = project_paths()
+
+        interactions = pd.read_csv(
+            os.path.join(
+                data_dir,
+                "interactions.csv",
+            )
+        )
+
+    else:
+        interactions = interactions.copy()
+
+    (
+        content_scores,
+        collaborative_scores,
+        popularity_scores,
+    ) = get_recommendation_scores(
+        user_id=user_id,
+        top_k=top_k,
+        interactions=interactions,
+    )
+
+    combined_scores = combine_score_tables(
+        content_scores,
+        collaborative_scores,
+        popularity_scores,
+    )
+
+    normalized_scores = normalize_score_table(
+        combined_scores
+    )
+
+    hybrid_scores = calculate_hybrid_score(
+        normalized_scores,
+        content_weight=content_weight,
+        collaborative_weight=collaborative_weight,
+        popularity_weight=popularity_weight,
+    )
+
+    # If candidate restaurants were provided,
+    # only keep those restaurants.
+    if candidate_restaurant_ids is not None:
+        hybrid_scores = hybrid_scores[
+            hybrid_scores.index.isin(
+                candidate_restaurant_ids
+            )
+        ]
+
+    hybrid_scores = remove_seen_restaurants(
+        hybrid_scores,
+        user_id,
+        interactions,
+    )
+
+    hybrid_scores = hybrid_scores.head(top_k)
+
+    recommendations = add_restaurant_details(
+        hybrid_scores
+    )
+
+    return recommendations
+
+
+def main():
+    recommendations = recommend_for_user(
+        user_id="U001",
+        top_k=10,
+        content_weight=0.4,
+        collaborative_weight=0.4,
+        popularity_weight=0.2,
+    )
+
+    columns = [
+        "restaurant_id",
+        "name",
+        "cuisine",
+        "price_range",
+        "rating",
+        "content",
+        "collaborative",
+        "popularity",
+        "hybrid_score",
+    ]
+
+    print(
+        recommendations[columns].to_string(
+            index=False
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

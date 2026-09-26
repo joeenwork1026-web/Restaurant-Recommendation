@@ -1,23 +1,4 @@
-"""Popularity-based restaurant recommendations.
-
-Approach
---------
-This recommender does not learn user taste. It only asks: "How many
-different people interacted with this restaurant?"
-
-A restaurant that 40 unique users viewed/clicked/liked is treated as more
-popular than one that 5 unique users touched, even if those 5 users left
-many events. Using unique users avoids counting the same person twice.
-
-Pandas steps
-------------
-1. read_csv          load restaurants and interactions
-2. groupby + nunique count distinct user_id values per restaurant_id
-3. merge             attach that count onto the restaurant table
-4. fillna            restaurants with no interactions get popularity 0
-5. sort_values       highest popularity first; rating breaks ties
-6. head              keep only the top K rows
-"""
+"""Popularity-based restaurant recommender."""
 
 import os
 
@@ -25,45 +6,166 @@ import pandas as pd
 
 
 def project_paths():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.abspath(os.path.join(script_dir, "..", ".."))
-    data_dir = os.path.join(project_root, "data")
+    """Return the path to the project's data directory."""
+
+    script_dir = os.path.dirname(
+        os.path.abspath(__file__)
+    )
+
+    project_root = os.path.abspath(
+        os.path.join(
+            script_dir,
+            "..",
+            "..",
+        )
+    )
+
+    data_dir = os.path.join(
+        project_root,
+        "data",
+    )
+
     return data_dir
 
 
-def load_popularity_table():
+def load_popularity_table(
+    interactions=None,
+):
+    """
+    Create a popularity table for restaurants.
+
+    Popularity is measured by the number of
+    unique users who interacted with a restaurant.
+    """
+
     data_dir = project_paths()
-    restaurants = pd.read_csv(os.path.join(data_dir, "restaurants.csv"))
-    interactions = pd.read_csv(os.path.join(data_dir, "interactions.csv"))
 
-    # One row per restaurant: how many unique users interacted with it.
+    # Load restaurant information.
+    restaurants = pd.read_csv(
+        os.path.join(
+            data_dir,
+            "restaurants.csv",
+        )
+    )
+
+    # Load interactions.
+    if interactions is None:
+
+        interactions = pd.read_csv(
+            os.path.join(
+                data_dir,
+                "interactions.csv",
+            )
+        )
+
+    else:
+        interactions = interactions.copy()
+
+    # Count unique users for each restaurant.
     popularity = (
-        interactions.groupby("restaurant_id")["user_id"]
+        interactions
+        .groupby("restaurant_id")["user_id"]
         .nunique()
-        .reset_index(name="popularity")
+        .reset_index(
+            name="popularity"
+        )
     )
 
-    # Keep restaurant details and add the popularity column.
-    ranked = restaurants.merge(popularity, on="restaurant_id", how="left")
-    ranked["popularity"] = ranked["popularity"].fillna(0).astype(int)
+    # Add popularity information to the
+    # restaurant dataset.
+    ranked = restaurants.merge(
+        popularity,
+        on="restaurant_id",
+        how="left",
+    )
 
+    # Restaurants with no interactions get
+    # a popularity score of 0.
+    ranked["popularity"] = (
+        ranked["popularity"]
+        .fillna(0)
+        .astype(int)
+    )
+
+    # First sort by popularity.
+    #
+    # If two restaurants have the same popularity,
+    # use rating as the tie-breaker.
     ranked = ranked.sort_values(
-        by=["popularity", "rating"],
-        ascending=[False, False],
+        by=[
+            "popularity",
+            "rating",
+        ],
+        ascending=[
+            False,
+            False,
+        ],
     )
-    return ranked.reset_index(drop=True)
+
+    return ranked.reset_index(
+        drop=True
+    )
 
 
-def get_popular_restaurants(top_k=10):
-    """Return the top K restaurants by unique-user popularity."""
-    ranked = load_popularity_table()
-    return ranked.head(top_k)
+def get_popular_restaurants(
+    top_k=10,
+    interactions=None,
+):
+    """
+    Return the most popular restaurants.
+    """
+
+    ranked = load_popularity_table(
+        interactions=interactions
+    )
+
+    return ranked.head(
+        top_k
+    )
+
+
+def get_popularity_scores(
+    interactions=None,
+):
+    """
+    Return popularity scores indexed by
+    restaurant_id.
+
+    This is useful for the hybrid recommender.
+    """
+
+    popularity_table = load_popularity_table(
+        interactions=interactions
+    )
+
+    return (
+        popularity_table
+        .set_index("restaurant_id")[
+            "popularity"
+        ]
+    )
 
 
 def main():
-    top_10 = get_popular_restaurants(top_k=10)
-    columns = ["restaurant_id", "name", "cuisine", "rating", "popularity"]
-    print(top_10[columns].to_string(index=False))
+    """Run a simple popularity recommendation."""
+
+    top_10 = get_popular_restaurants(
+        top_k=10
+    )
+
+    columns = [
+        "restaurant_id",
+        "name",
+        "cuisine",
+        "rating",
+        "popularity",
+    ]
+
+    print(
+        top_10[
+            columns
+        ].to_string(index=False)
+    )
 
 
 if __name__ == "__main__":
