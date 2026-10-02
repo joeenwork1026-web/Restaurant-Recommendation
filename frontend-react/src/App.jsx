@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import LoginModal from "./LoginModal.jsx";
 import RestaurantImage from "./RestaurantImage.jsx";
 
-const API_BASE = "http://127.0.0.1:8000";
+const API_BASE =
+  import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const SEARCH_STAGES = [
     "Understanding your request",
