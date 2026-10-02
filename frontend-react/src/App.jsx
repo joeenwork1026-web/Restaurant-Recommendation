@@ -1,55 +1,32 @@
 import { useEffect, useRef, useState } from "react";
-import {
-    isRestaurantSaved,
-    loadSavedRestaurants,
-    saveRestaurantsToStorage,
-    toggleSavedRestaurant,
-} from "./savedRestaurants.js";
-import RestaurantPhotoCarousel from "./RestaurantPhotoCarousel.jsx";
+import LoginModal from "./LoginModal.jsx";
+import RestaurantImage from "./RestaurantImage.jsx";
 
 const API_BASE = "http://127.0.0.1:8000";
 
-const CUISINE_TAGS = [
-    "Japanese",
-    "Korean",
-    "Chinese",
-    "Western",
-    "Thai",
-    "Indian",
-    "Italian",
-    "Mexican",
-    "Malaysian",
-    "Vegetarian",
+const SEARCH_STAGES = [
+    "Understanding your request",
+    "Finding matching restaurants",
+    "Ranking the best matches",
+    "Preparing your recommendations",
 ];
 
-function RestaurantCard({
-    restaurant,
-    showExplanation,
-    isSaved,
-    onToggleSave,
-}) {
+const STAGE_DELAYS_MS = [0, 1200, 2800, 4500];
+const COMPLETE_DISPLAY_MS = 500;
+
+function RestaurantCard({ restaurant, showExplanation, onSaveClick }) {
     return (
         <article className="restaurant-card">
             <div className="restaurant-image-wrap">
-                <RestaurantPhotoCarousel restaurant={restaurant} />
+                <RestaurantImage restaurant={restaurant} />
                 <button
                     type="button"
-                    className={
-                        isSaved ? "save-heart saved" : "save-heart"
-                    }
-                    aria-label={
-                        isSaved
-                            ? "Remove from saved"
-                            : "Save restaurant"
-                    }
-                    title={
-                        isSaved
-                            ? "Remove from saved"
-                            : "Save restaurant"
-                    }
-                    onClick={() => onToggleSave(restaurant)}
+                    className="save-heart"
+                    aria-label="Save restaurant (sign in required)"
+                    title="Sign in to save restaurants"
+                    onClick={() => onSaveClick(restaurant)}
                 >
-                    {isSaved ? "♥" : "♡"}
+                    ♡
                 </button>
             </div>
 
@@ -80,115 +57,150 @@ function RestaurantCard({
     );
 }
 
+function SearchProgress({ completedCount, activeStage }) {
+    return (
+        <div className="search-progress" aria-live="polite">
+            <ul className="search-progress-list">
+                {SEARCH_STAGES.map((label, index) => {
+                    const isDone = index < completedCount;
+                    const isActive =
+                        !isDone &&
+                        index === activeStage &&
+                        completedCount < SEARCH_STAGES.length;
+
+                    let icon = "○";
+                    let rowClass = "search-progress-item pending";
+
+                    if (isDone) {
+                        icon = "✓";
+                        rowClass = "search-progress-item done";
+                    } else if (isActive) {
+                        icon = "✦";
+                        rowClass = "search-progress-item active";
+                    }
+
+                    return (
+                        <li key={label} className={rowClass}>
+                            <span className="search-progress-icon">{icon}</span>
+                            <span>
+                                {label}
+                                {isActive ? "..." : ""}
+                            </span>
+                        </li>
+                    );
+                })}
+            </ul>
+        </div>
+    );
+}
+
 function App() {
     const [query, setQuery] = useState("");
     const [submittedQuery, setSubmittedQuery] = useState("");
     const [recommendations, setRecommendations] = useState([]);
     const [matchType, setMatchType] = useState("");
-    const [resultMode, setResultMode] = useState("search");
-    const [selectedCuisine, setSelectedCuisine] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [activePage, setActivePage] = useState("home");
-    const [savedRestaurants, setSavedRestaurants] = useState([]);
+    const [loginOpen, setLoginOpen] = useState(false);
+    const [showSearchProgress, setShowSearchProgress] = useState(false);
+    const [completedCount, setCompletedCount] = useState(0);
+    const [activeStage, setActiveStage] = useState(0);
+
     const resultsRef = useRef(null);
-    const discoverRef = useRef(null);
-    const savedRef = useRef(null);
+    const heroRef = useRef(null);
+    const progressTimersRef = useRef([]);
+    const finishTimerRef = useRef(null);
+
+    const clearProgressTimers = () => {
+        progressTimersRef.current.forEach((timerId) => {
+            clearTimeout(timerId);
+        });
+        progressTimersRef.current = [];
+
+        if (finishTimerRef.current) {
+            clearTimeout(finishTimerRef.current);
+            finishTimerRef.current = null;
+        }
+    };
+
+    const startProgressAnimation = () => {
+        clearProgressTimers();
+        setCompletedCount(0);
+        setActiveStage(0);
+
+        STAGE_DELAYS_MS.slice(1).forEach((delayMs, index) => {
+            const timerId = setTimeout(() => {
+                setCompletedCount(index + 1);
+                setActiveStage(index + 1);
+            }, delayMs);
+            progressTimersRef.current.push(timerId);
+        });
+    };
+
+    const finishProgressThen = (onDone) => {
+        clearProgressTimers();
+        setCompletedCount(SEARCH_STAGES.length);
+        setActiveStage(-1);
+
+        finishTimerRef.current = setTimeout(() => {
+            setShowSearchProgress(false);
+            onDone();
+        }, COMPLETE_DISPLAY_MS);
+    };
 
     useEffect(() => {
-        setSavedRestaurants(loadSavedRestaurants());
+        return () => {
+            clearProgressTimers();
+        };
     }, []);
 
     useEffect(() => {
-        saveRestaurantsToStorage(savedRestaurants);
-    }, [savedRestaurants]);
-
-    useEffect(() => {
-        if (
-            activePage === "home" &&
-            !loading &&
-            recommendations.length > 0 &&
-            resultsRef.current
-        ) {
+        if (!loading && recommendations.length > 0 && resultsRef.current) {
             resultsRef.current.scrollIntoView({
                 behavior: "smooth",
                 block: "start",
             });
         }
-    }, [loading, recommendations, activePage]);
+    }, [loading, recommendations]);
 
-    useEffect(() => {
-        if (activePage === "saved" && savedRef.current) {
-            savedRef.current.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-            });
-        }
-    }, [activePage, savedRestaurants.length]);
-
-    const handleToggleSave = (restaurant) => {
-        setSavedRestaurants((current) =>
-            toggleSavedRestaurant(restaurant, current)
-        );
+    const openLogin = () => {
+        setLoginOpen(true);
     };
 
-    const scrollToDiscover = (event) => {
+    const closeLogin = () => {
+        setLoginOpen(false);
+    };
+
+    const scrollToHero = (event) => {
         event.preventDefault();
-        setActivePage("home");
-        discoverRef.current?.scrollIntoView({
+        heroRef.current?.scrollIntoView({
             behavior: "smooth",
             block: "start",
         });
     };
 
-    const openSavedPage = (event) => {
+    const handleSavedClick = (event) => {
         event.preventDefault();
-        setActivePage("saved");
+        openLogin();
     };
 
-    const handleCuisineDiscover = async (cuisine) => {
-        setActivePage("home");
-        setLoading(true);
-        setError("");
-        setRecommendations([]);
-        setMatchType("discover");
-        setResultMode("discover");
-        setSelectedCuisine(cuisine);
-        setSubmittedQuery(`${cuisine} restaurants`);
-        setQuery(`${cuisine} food`);
-
-        try {
-            const response = await fetch(
-                `${API_BASE}/restaurants?cuisine=${encodeURIComponent(cuisine)}&limit=20`
-            );
-
-            if (!response.ok) {
-                throw new Error("Failed to load restaurants.");
-            }
-
-            const data = await response.json();
-            setRecommendations(data.restaurants || []);
-        } catch (err) {
-            console.error(err);
-            setError("Something went wrong while loading restaurants.");
-        } finally {
-            setLoading(false);
-        }
+    const handleSaveClick = () => {
+        openLogin();
     };
 
     const handleSearch = async () => {
-        if (!query.trim()) {
+        if (!query.trim() || loading) {
             return;
         }
 
-        setActivePage("home");
+        clearProgressTimers();
         setLoading(true);
         setError("");
         setRecommendations([]);
         setMatchType("");
-        setResultMode("search");
-        setSelectedCuisine("");
         setSubmittedQuery(query);
+        setShowSearchProgress(true);
+        startProgressAnimation();
 
         try {
             const response = await fetch(`${API_BASE}/recommend`, {
@@ -210,14 +222,21 @@ function App() {
             const items = Array.isArray(data.recommendations)
                 ? data.recommendations
                 : [];
+            const nextMatchType = data.match_type || "";
 
-            setRecommendations(items);
-            setMatchType(data.match_type || "");
+            finishProgressThen(() => {
+                setRecommendations(items);
+                setMatchType(nextMatchType);
+                setLoading(false);
+            });
         } catch (err) {
             console.error(err);
-            setError("Something went wrong while finding restaurants.");
-        } finally {
+            clearProgressTimers();
+            setShowSearchProgress(false);
             setLoading(false);
+            setCompletedCount(0);
+            setActiveStage(0);
+            setError("Something went wrong while finding restaurants.");
         }
     };
 
@@ -225,26 +244,14 @@ function App() {
         setQuery(suggestion);
     };
 
-    const resultsEyebrow =
-        resultMode === "discover" ? "✦ DISCOVER" : "✦ AI PICKS";
-
-    const resultsTitle =
-        resultMode === "discover" && selectedCuisine
-            ? `${selectedCuisine} restaurants`
-            : "Restaurants picked for you";
-
-    const renderRestaurantGrid = (restaurants, showExplanation) => (
+    const renderRestaurantGrid = (restaurants) => (
         <div className="restaurant-grid">
             {restaurants.map((restaurant) => (
                 <RestaurantCard
                     key={restaurant.restaurant_id}
                     restaurant={restaurant}
-                    showExplanation={showExplanation}
-                    isSaved={isRestaurantSaved(
-                        restaurant.restaurant_id,
-                        savedRestaurants
-                    )}
-                    onToggleSave={handleToggleSave}
+                    showExplanation
+                    onSaveClick={handleSaveClick}
                 />
             ))}
         </div>
@@ -253,283 +260,172 @@ function App() {
     return (
         <div className="app">
             <nav className="navbar">
-                <div className="logo">
-                    <span className="logo-icon">🍴</span>
-                    <span>ForkAI</span>
+                <div className="navbar-start">
+                    <div className="logo">
+                        <span className="logo-icon">🍴</span>
+                        <span>ForkAI</span>
+                    </div>
+
+                    <div className="nav-links">
+                        <a
+                            href="#top"
+                            className="nav-active"
+                            onClick={scrollToHero}
+                        >
+                            Discover
+                        </a>
+                        <button
+                            type="button"
+                            className="nav-saved-button"
+                            onClick={handleSavedClick}
+                        >
+                            Saved
+                            <span className="nav-login-hint">Sign in required</span>
+                        </button>
+                    </div>
                 </div>
 
-                <div className="nav-links">
-                    <a
-                        href="#discover"
-                        className={
-                            activePage === "home" ? "nav-active" : ""
-                        }
-                        onClick={scrollToDiscover}
-                    >
-                        Discover
-                    </a>
-                    <a href="#">For You</a>
-                    <a
-                        href="#saved"
-                        className={
-                            activePage === "saved" ? "nav-active" : ""
-                        }
-                        onClick={openSavedPage}
-                    >
-                        Saved
-                        {savedRestaurants.length > 0 ? (
-                            <span className="nav-badge">
-                                {savedRestaurants.length}
-                            </span>
-                        ) : null}
-                    </a>
-                </div>
-
-                <button className="profile-button">JD</button>
+                <button
+                    type="button"
+                    className="sign-in-button"
+                    onClick={openLogin}
+                >
+                    Sign in
+                </button>
             </nav>
 
-            {activePage === "home" ? (
-                <>
-                    <main
-                        className={
-                            recommendations.length > 0
-                                ? "hero hero-compact"
-                                : "hero"
-                        }
-                    >
-                        <div className="hero-content">
-                            <div className="ai-badge">
-                                ✦ AI-powered restaurant discovery
-                            </div>
+            <LoginModal isOpen={loginOpen} onClose={closeLogin} />
 
-                            <h1>
-                                Find somewhere
-                                <br />
-                                <span>you'll love.</span>
-                            </h1>
+            <main
+                ref={heroRef}
+                id="top"
+                className={
+                    recommendations.length > 0 ? "hero hero-compact" : "hero"
+                }
+            >
+                <div className="hero-content">
+                    <div className="ai-badge">
+                        ✦ AI-powered restaurant discovery
+                    </div>
 
-                            <p className="hero-description">
-                                Tell ForkAI what you're craving. We'll find the
-                                restaurants that match you.
-                            </p>
+                    <h1>
+                        Find somewhere
+                        <br />
+                        <span>you'll love.</span>
+                    </h1>
 
-                            <div className="search-box">
-                                <div className="search-icon">✦</div>
-                                <input
-                                    type="text"
-                                    value={query}
-                                    onChange={(event) =>
-                                        setQuery(event.target.value)
-                                    }
-                                    onKeyDown={(event) => {
-                                        if (event.key === "Enter") {
-                                            handleSearch();
-                                        }
-                                    }}
-                                    placeholder="Try “cheap Japanese food in Kuala Lumpur...”"
-                                />
-                                <button
-                                    className="search-button"
-                                    onClick={handleSearch}
-                                    disabled={loading}
-                                >
-                                    {loading
-                                        ? "Finding..."
-                                        : "Find restaurants"}
-                                </button>
-                            </div>
+                    <p className="hero-description">
+                        Tell ForkAI what you're craving. We'll find the
+                        restaurants that match you.
+                    </p>
 
-                            <div className="suggestions">
-                                <span>Try asking:</span>
-                                <button
-                                    onClick={() =>
-                                        handleSuggestion("Japanese food")
-                                    }
-                                >
-                                    🍜 Japanese food
-                                </button>
-                                <button
-                                    onClick={() =>
-                                        handleSuggestion(
-                                            "Chinese food under $$"
-                                        )
-                                    }
-                                >
-                                    🥟 Chinese food under $$
-                                </button>
-                                <button
-                                    onClick={() =>
-                                        handleSuggestion(
-                                            "Highly rated restaurants"
-                                        )
-                                    }
-                                >
-                                    ⭐ Highly rated
-                                </button>
-                            </div>
-
-                            <section
-                                id="discover"
-                                className="discover-section"
-                                ref={discoverRef}
-                            >
-                                <p className="discover-eyebrow">
-                                    Browse by cuisine
-                                </p>
-                                <h2 className="discover-title">Discover</h2>
-                                <p className="discover-description">
-                                    Tap a cuisine to see restaurants in our
-                                    dataset.
-                                </p>
-
-                                <div className="cuisine-tags">
-                                    {CUISINE_TAGS.map((cuisine) => (
-                                        <button
-                                            key={cuisine}
-                                            type="button"
-                                            className={
-                                                selectedCuisine === cuisine
-                                                    ? "cuisine-tag active"
-                                                    : "cuisine-tag"
-                                            }
-                                            onClick={() =>
-                                                handleCuisineDiscover(cuisine)
-                                            }
-                                            disabled={loading}
-                                        >
-                                            {cuisine}
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-
-                            {loading && (
-                                <div className="search-result-message">
-                                    <span>✦</span>
-                                    ForkAI is finding restaurants for you...
-                                </div>
-                            )}
-
-                            {error && (
-                                <div className="error-message">{error}</div>
-                            )}
-
-                            {!loading &&
-                                !error &&
-                                submittedQuery &&
-                                recommendations.length > 0 && (
-                                    <div className="search-result-message">
-                                        <span>✦</span>
-                                        {resultMode === "discover" ? (
-                                            <>
-                                                Showing{" "}
-                                                <strong>
-                                                    {recommendations.length}
-                                                </strong>{" "}
-                                                <strong>
-                                                    {selectedCuisine}
-                                                </strong>{" "}
-                                                restaurants.
-                                            </>
-                                        ) : matchType === "exact" ? (
-                                            <>
-                                                Found{" "}
-                                                <strong>
-                                                    {recommendations.length}
-                                                </strong>{" "}
-                                                restaurants for{" "}
-                                                <strong>
-                                                    {submittedQuery}
-                                                </strong>
-                                                .
-                                            </>
-                                        ) : (
-                                            <>
-                                                No exact matches for{" "}
-                                                <strong>
-                                                    {submittedQuery}
-                                                </strong>
-                                                . Showing{" "}
-                                                <strong>
-                                                    {recommendations.length}
-                                                </strong>{" "}
-                                                similar restaurants instead.
-                                            </>
-                                        )}
-                                    </div>
-                                )}
-
-                            {!loading &&
-                                !error &&
-                                submittedQuery &&
-                                recommendations.length === 0 && (
-                                    <div className="search-result-message">
-                                        <span>✦</span>
-                                        No restaurants found. Try another
-                                        cuisine or search.
-                                    </div>
-                                )}
-                        </div>
-                    </main>
-
-                    {!loading && recommendations.length > 0 && (
-                        <section
-                            className="results-section"
-                            ref={resultsRef}
+                    <div className="search-box">
+                        <div className="search-icon">✦</div>
+                        <input
+                            type="text"
+                            value={query}
+                            onChange={(event) => setQuery(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter" && !loading) {
+                                    handleSearch();
+                                }
+                            }}
+                            placeholder="Try “cheap Japanese food in Kuala Lumpur...”"
+                            disabled={loading}
+                        />
+                        <button
+                            className="search-button"
+                            onClick={handleSearch}
+                            disabled={loading}
                         >
-                            <div className="results-header">
-                                <div>
-                                    <p className="results-eyebrow">
-                                        {resultsEyebrow}
-                                    </p>
-                                    <h2>{resultsTitle}</h2>
-                                </div>
-                                <span className="results-count">
-                                    {recommendations.length} matches
-                                </span>
-                            </div>
+                            {loading ? "Searching..." : "Find restaurants"}
+                        </button>
+                    </div>
 
-                            {renderRestaurantGrid(
-                                recommendations,
-                                resultMode === "search"
-                            )}
-                        </section>
+                    <div className="suggestions">
+                        <span>Try asking:</span>
+                        <button
+                            onClick={() => handleSuggestion("Japanese food")}
+                            disabled={loading}
+                        >
+                            🍜 Japanese food
+                        </button>
+                        <button
+                            onClick={() =>
+                                handleSuggestion("Chinese food under $$")
+                            }
+                            disabled={loading}
+                        >
+                            🥟 Chinese food under $$
+                        </button>
+                        <button
+                            onClick={() =>
+                                handleSuggestion("Highly rated restaurants")
+                            }
+                            disabled={loading}
+                        >
+                            ⭐ Highly rated
+                        </button>
+                    </div>
+
+                    {showSearchProgress && (
+                        <SearchProgress
+                            completedCount={completedCount}
+                            activeStage={activeStage}
+                        />
                     )}
-                </>
-            ) : (
-                <section
-                    id="saved"
-                    className="saved-page"
-                    ref={savedRef}
-                >
-                    <div className="saved-header">
+
+                    {error && <div className="error-message">{error}</div>}
+
+                    {!loading &&
+                        !error &&
+                        submittedQuery &&
+                        recommendations.length > 0 && (
+                            <div className="search-result-message">
+                                <span>✦</span>
+                                {matchType === "exact" ? (
+                                    <>
+                                        Found{" "}
+                                        <strong>{recommendations.length}</strong>{" "}
+                                        restaurants for{" "}
+                                        <strong>{submittedQuery}</strong>.
+                                    </>
+                                ) : (
+                                    <>
+                                        No exact matches for{" "}
+                                        <strong>{submittedQuery}</strong>. Showing{" "}
+                                        <strong>{recommendations.length}</strong>{" "}
+                                        similar restaurants instead.
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                    {!loading &&
+                        !error &&
+                        submittedQuery &&
+                        recommendations.length === 0 && (
+                            <div className="search-result-message">
+                                <span>✦</span>
+                                No restaurants found. Try another search.
+                            </div>
+                        )}
+                </div>
+            </main>
+
+            {!loading && recommendations.length > 0 && (
+                <section className="results-section" ref={resultsRef}>
+                    <div className="results-header">
                         <div>
-                            <p className="results-eyebrow">✦ SAVED</p>
-                            <h2>Your saved restaurants</h2>
-                            <p className="saved-description">
-                                Tap the heart on any card to add or remove a
-                                restaurant here.
-                            </p>
+                            <p className="results-eyebrow">✦ AI PICKS</p>
+                            <h2>Restaurants picked for you</h2>
                         </div>
                         <span className="results-count">
-                            {savedRestaurants.length} saved
+                            {recommendations.length} matches
                         </span>
                     </div>
 
-                    {savedRestaurants.length === 0 ? (
-                        <div className="saved-empty">
-                            <p>No saved restaurants yet.</p>
-                            <button
-                                type="button"
-                                className="saved-empty-button"
-                                onClick={(event) => scrollToDiscover(event)}
-                            >
-                                Discover restaurants
-                            </button>
-                        </div>
-                    ) : (
-                        renderRestaurantGrid(savedRestaurants, false)
-                    )}
+                    {renderRestaurantGrid(recommendations)}
                 </section>
             )}
         </div>

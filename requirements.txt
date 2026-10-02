@@ -1,0 +1,13 @@
+# FastAPI app (src/api/main.py)
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.0.0
+
+# Qwen via OpenAI-compatible client (src/AI/qwen.py, src/AI/explainer.py)
+python-dotenv>=1.0.0
+openai>=1.0.0
+
+# Data & ranking (src/AI/restaurant_filter.py, src/recommendation/query_ranker.py, src/AI/restaurant_images.py)
+pandas>=2.0.0
+scikit-learn>=1.3.0
+numpy>=1.24.0
