@@ -12,7 +12,7 @@ const SEARCH_STAGES = [
     "Preparing your recommendations",
 ];
 
-const STAGE_DELAYS_MS = [0, 1200, 2800, 4500];
+const STAGE_DELAYS_MS = [0, 2000, 4000, 6500];
 const COMPLETE_DISPLAY_MS = 500;
 
 function RestaurantCard({ restaurant, showExplanation, onSaveClick }) {
