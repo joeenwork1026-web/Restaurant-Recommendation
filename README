@@ -1,4 +1,4 @@
-##🍜 AI Restaurant Recommendation System
+## 🍜 AI Restaurant Recommendation System
 
 An end-to-end restaurant recommendation system that combines traditional recommendation algorithms with an LLM-powered natural-language search interface.
 
@@ -90,3 +90,27 @@ Vector Representation
 Cosine Similarity
         ↓
 Similarity Score
+
+
+
+📚 What I Learned
+This project helped me understand the complete process of building a recommendation application, from data preparation to deployment.
+Some of the main areas I worked on were:
+- Creating synthetic datasets
+- Designing user-item interactions
+- Building recommendation baselines
+- Implementing content-based recommendation
+- Implementing collaborative filtering
+- Combining recommendation signals
+- Evaluating recommendation systems
+- Integrating an LLM with a traditional ML pipeline
+- Building REST APIs with FastAPI
+- Connecting a React frontend to a backend API
+- Managing environment variables and API keys
+- Using Git and GitHub for version control
+- Debugging frontend/backend communication
+- Deploying an application to the cloud
+
+👨‍💻 Author
+Joe En Lee
+
