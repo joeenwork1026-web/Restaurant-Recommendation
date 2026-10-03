@@ -1,0 +1,92 @@
+## AI Restaurant Recommendation System
+
+An end-to-end restaurant recommendation system that combines traditional recommendation algorithms with an LLM-powered natural-language search interface.
+
+Users can describe what they are looking for in natural language, and the system extracts their preferences, filters restaurants, ranks recommendations, and provides an explanation for each result.
+
+## 🚀 Live Demo
+
+**Web Application:**  
+https://forkai.onrender.com
+
+**Backend API:**  
+https://forkai-api.onrender.com
+
+---
+
+## 📌 Project Overview
+
+This project was built to explore the complete workflow of building and deploying a recommendation system.
+
+Instead of relying on a single recommendation technique, the system implements several approaches and evaluates them against each other:
+
+- Popularity-based recommendation
+- Content-based recommendation
+- Collaborative filtering
+- Hybrid recommendation
+
+An LLM layer is then added to allow users to interact with the recommendation system using natural language.
+
+For example:
+
+> "I want a cheap Japanese restaurant in Kuala Lumpur with good ratings."
+
+The system converts this request into structured preferences and uses them to find and rank suitable restaurants.
+
+---
+
+## ✨ Features
+
+- 🔎 Natural-language restaurant search
+- 🤖 LLM-powered preference extraction using Qwen
+- ⭐ Popularity-based recommendations
+- 📝 Content-based recommendations using TF-IDF
+- 👥 Collaborative filtering
+- 🔀 Hybrid recommendation
+- 📊 Offline recommendation evaluation
+- 💬 AI-generated recommendation explanations
+- ⚡ FastAPI backend
+- ⚛️ React frontend
+- 🌐 Deployed on Render
+- 🔐 Environment-based API key management
+
+---
+
+# 🧠 Recommendation System
+
+The project implements four recommendation approaches.
+
+## 1. Popularity-Based Recommendation
+
+The popularity model provides a simple baseline.
+
+Restaurants are ranked based on the number of unique users who interacted with them.
+
+This provides a useful baseline for comparing more personalized recommendation approaches.
+
+---
+
+## 2. Content-Based Recommendation
+
+The content-based recommender uses restaurant information such as:
+
+- Cuisine
+- Categories
+- Restaurant descriptions
+
+The text information is converted into TF-IDF vectors.
+
+Cosine similarity is then used to measure the similarity between restaurants and the user's query.
+
+The basic flow is:
+
+```text
+Restaurant Information
+        ↓
+      TF-IDF
+        ↓
+Vector Representation
+        ↓
+Cosine Similarity
+        ↓
+Similarity Score
